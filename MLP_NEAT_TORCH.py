@@ -94,7 +94,7 @@ class RS:
     
     # String - which activation function each node will use
     # Note: currently only sigmoid and tanh are available - see v1/activations.py for functions
-    ACTIVATION = 'sigmoid'
+    ACTIVATION = 'relu'
     # Float - what value to scale the activation function's input by
     # This default value is taken directly from the paper
     SCALE_ACTIVATION = 4.9
@@ -103,9 +103,9 @@ class RS:
     FITNESS_THRESHOLD = 0.98
 
     # Integer - size of population
-    POPULATION_SIZE = 10
+    POPULATION_SIZE = 100
     # Integer - max number of generations to be run for
-    NUMBER_OF_GENERATIONS = 200
+    NUMBER_OF_GENERATIONS = 2
     # Float - an organism is said to be in a species if the genome distance to the model genome of a species is <= this speciation threshold
     SPECIATION_THRESHOLD = 3.0
 
@@ -138,11 +138,9 @@ class RS:
 
         values = []
         gt = []
-        i = 0
+        acc = 0
         for input, target in zip(self.inputs, self.targets):  # 4 training examples
             input, target = input.to(self.DEVICE), target.to(self.DEVICE)
-            #print(input)
-            #print(target)
 
             pred = net(input)
             pred = pred.flatten().tolist()
@@ -151,17 +149,18 @@ class RS:
                 pred = 1
             else:
                 pred = 0
+            
             gt.append(target)
             values.append(pred)
-
-            i +=1
-            
-            if i == 100:
-                break
+            if pred == target:
+              acc +=1
     
-        fitness = accuracy_score(values, gt)
+        #fitness = accuracy_score(values, gt)
         if len(set(values)) == 1:
             fitness = 0 
+        else:
+          fitness = acc/len(self.inputs)
+
         print(fitness)
         
         return fitness
@@ -280,16 +279,19 @@ if __name__ == '__main__':
     
     train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
 
+
+
     num_users, num_items = train.shape
 
     print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
           %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
     # Build model
-    train = train[:50]
+    train = train[:1]
+
+    m = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(m)
     model = get_model(train, num_users, num_items,  num_negatives, layers, reg_layers)
     
     t2 = time()
     print("Execution time :", t2-t1)
     exit(0)
-
-    
