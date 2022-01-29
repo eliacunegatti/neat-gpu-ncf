@@ -1,0 +1,33 @@
+MLP arguments: Namespace(path='Data/Dataset2/', dataset='new_small_ml-1m', epochs=100, batch_size=256, layers='[64,32,16,8]', reg_layers='[0,0,0,0]', num_neg=4, lr=0.001, learner='adam', verbose=1, out=1) 
+Load data done [3.8 s]. #user=1501, #item=3953, #train=247079, #test=1500
+(1501, 3953)
+
+ ****** Running generation 0 ****** 
+
+a
+b
+Output 1235395 64
+NNS 150
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
