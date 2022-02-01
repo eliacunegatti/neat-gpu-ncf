@@ -58,7 +58,7 @@ def parse_args():
                         help="Size of each layer. Note that the first layer is the concatenation of user and item embeddings. So layers[0]/2 is the embedding size.")
     parser.add_argument('--reg_layers', nargs='?', default='[0,0,0,0]',
                         help="Regularization for each layer")
-    parser.add_argument('--num_neg', type=int, default=4,      # NUMBER OF NEGATIVES INSTANCES 
+    parser.add_argument('--num_neg', type=int, default=1,      # NUMBER OF NEGATIVES INSTANCES 
                         help='Number of negative instances to pair with a positive instance.')
     parser.add_argument('--lr', type=float, default=0.001,
                         help='Learning rate.')
@@ -86,15 +86,14 @@ class RS:
     VERBOSE = True
 
     # Number of inputs/outputs each genome should contain
-    NUM_INPUTS = 64
-    NUM_HIDDENS = 10 
+    NUM_INPUTS = 32
     NUM_OUTPUTS = 1
     # Boolean - use a bias node in each genome
     USE_BIAS = True
     
     # String - which activation function each node will use
     # Note: currently only sigmoid and tanh are available - see v1/activations.py for functions
-    ACTIVATION = 'relu'
+    ACTIVATION = 'sigmoid'
     # Float - what value to scale the activation function's input by
     # This default value is taken directly from the paper
     SCALE_ACTIVATION = 4.9
@@ -103,9 +102,9 @@ class RS:
     FITNESS_THRESHOLD = 0.98
 
     # Integer - size of population
-    POPULATION_SIZE = 100
+    POPULATION_SIZE = 10
     # Integer - max number of generations to be run for
-    NUMBER_OF_GENERATIONS = 2
+    NUMBER_OF_GENERATIONS = 500
     # Float - an organism is said to be in a species if the genome distance to the model genome of a species is <= this speciation threshold
     SPECIATION_THRESHOLD = 3.0
 
@@ -139,7 +138,13 @@ class RS:
         values = []
         gt = []
         acc = 0
-        for input, target in zip(self.inputs, self.targets):  # 4 training examples
+        import random 
+        k = random.sample(range(0,(len(self.inputs)-1)) , 200)
+
+
+        for i in k:
+            input = self.inputs[i]
+            target = self.targets[i] # 4 training examples
             input, target = input.to(self.DEVICE), target.to(self.DEVICE)
 
             pred = net(input)
@@ -159,7 +164,7 @@ class RS:
         if len(set(values)) == 1:
             fitness = 0 
         else:
-          fitness = acc/len(self.inputs)
+          fitness = acc/len(k)
 
         print(fitness)
         
@@ -172,9 +177,9 @@ def get_latent_vectors(num_users, num_items, reg_layers=[0,0,0]):
     user_input = Input(shape=(1,), dtype='int32', name = 'user_input')
     item_input = Input(shape=(1,), dtype='int32', name = 'item_input')
 
-    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = 32, name = 'user_embedding',
+    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = 16, name = 'user_embedding',
                                    embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = 32, name = 'item_embedding',
+    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = 16, name = 'item_embedding',
                                    embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
     
     # Crucial to flatten an embedding vector!
@@ -224,7 +229,7 @@ def get_model(train, num_users, num_items, num_negatives ,layers = [20,10], reg_
 
     print(solution, generation)
 
-
+    solution
     draw_net(solution, view=True, filename='ciao', show_disabled=True)
 
     exit(0)
@@ -286,7 +291,7 @@ if __name__ == '__main__':
     print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
           %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
     # Build model
-    train = train[:1]
+    train = train[:50]
 
     m = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(m)
