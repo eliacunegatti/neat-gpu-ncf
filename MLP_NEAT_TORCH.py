@@ -139,7 +139,7 @@ class RS:
         gt = []
         acc = 0
         import random 
-        k = random.sample(range(0,(len(self.inputs)-1)) , 200)
+        k = random.sample(range(0,(len(self.inputs)-1)) , len(self.inputs))
 
 
         for i in k:
