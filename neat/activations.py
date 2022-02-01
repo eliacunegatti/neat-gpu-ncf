@@ -22,8 +22,7 @@ class Activations:
         self.functions = dict(
             sigmoid=sigmoid,
             tanh=tanh,
-            relu=relu, 
-            softmax= softmax
+            relu=relu
         )
 
     def get(self, func_name):
