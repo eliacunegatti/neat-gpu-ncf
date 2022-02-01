@@ -139,10 +139,10 @@ class RS:
         gt = []
         acc = 0
         import random 
-        k = random.sample(range(0,(len(self.inputs)-1)) , 1000)
+        #k = random.sample(range(0,(len(self.inputs)-1)) , )
 
 
-        for i in k:
+        for i in range(len(self.inputs)):
             input = self.inputs[i]
             target = self.targets[i] # 4 training examples
             input, target = input.to(self.DEVICE), target.to(self.DEVICE)
