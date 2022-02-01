@@ -102,9 +102,9 @@ class RS:
     FITNESS_THRESHOLD = 0.98
 
     # Integer - size of population
-    POPULATION_SIZE = 10
+    POPULATION_SIZE = 25
     # Integer - max number of generations to be run for
-    NUMBER_OF_GENERATIONS = 500
+    NUMBER_OF_GENERATIONS = 150
     # Float - an organism is said to be in a species if the genome distance to the model genome of a species is <= this speciation threshold
     SPECIATION_THRESHOLD = 3.0
 
