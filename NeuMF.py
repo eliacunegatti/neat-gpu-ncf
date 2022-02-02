@@ -66,10 +66,7 @@ def parse_args():
 #def init_normal(shape, name=None):
 #    return tf.keras.initializations.normal(shape, scale=0.01, name=name)
 
-def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_mf=0):
-    assert len(layers) == len(reg_layers)
-    num_layer = len(layers) #Number of layers in the MLP
-    # Input variables
+def get_gmf_embeddings(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_mf=0):
     user_input = Input(shape=(int(1),), dtype='int32', name = 'user_input')
     item_input = Input(shape=(int(1),), dtype='int32', name = 'item_input')
     
@@ -79,58 +76,53 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     MF_Embedding_Item = Embedding(input_dim = num_items, output_dim = 32, name = 'mf_embedding_item',
                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_mf), input_length=1)
 
-    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = 32, name = "mlp_embedding_user",
-                                  embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = 32, name = 'mlp_embedding_item',
-                                  embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
+
     
     # MF part
     mf_user_latent = Flatten()(MF_Embedding_User(user_input))
     mf_item_latent = Flatten()(MF_Embedding_Item(item_input))
     mf_vector = Multiply()([mf_user_latent, mf_item_latent]) # element-wise multiply
+        
 
-    # MLP part 
-    mlp_user_latent = Flatten()(MLP_Embedding_User(user_input))
-    mlp_item_latent = Flatten()(MLP_Embedding_Item(item_input))
     
-    mlp_vector = concatenate([mlp_user_latent, mlp_item_latent],axis=-1)
-   
+    model = Model(inputs=[mf_user_latent, mf_item_latent],
+                outputs=mf_vector)
+    return model
 
+def get_neat_vectors(num_users, num_items, reg_layers=[0,0,0]):
+    # Input variables
+    user_input = Input(shape=(1,), dtype='int32', name = 'user_input')
+    item_input = Input(shape=(1,), dtype='int32', name = 'item_input')
 
-    # Concatenate MF and MLP parts
-    #mf_vector = Lambda(lambda x: x * alpha)(mf_vector)
-    #mlp_vector = Lambda(lambda x : x * (1-alpha))(mlp_vector)
-    predict_vector = concatenate([mf_vector, mlp_vector], axis=-1)
+    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = 16, name = 'user_embedding',
+                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
+    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = 16, name = 'item_embedding',
+                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
     
+    # Crucial to flatten an embedding vector!
+    user_latent = Flatten()(MLP_Embedding_User(user_input))
+    item_latent = Flatten()(MLP_Embedding_Item(item_input))
+    
+    # The 0-th layer is the concatenation of embedding layers
+    vector = concatenate([user_latent, item_latent], axis= -1)
+
+    model = Model(inputs=[user_input, item_input],
+                  outputs=vector)
+    
+    return model
+
+
+def final_layer(mlp_vector, gmf_vector):
     # Final prediction layer
     prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name = "prediction")(predict_vector)
     
-    model = Model(inputs=[user_input, item_input],
+    model = Model(inputs=[mlp_vector, gmf_vector],
                   outputs=prediction)
     
     return model
 
-def load_pretrain_model(model, gmf_model, mlp_model, num_layers):
-    # MF embeddings
-    gmf_user_embeddings = gmf_model.get_layer('user_embedding').get_weights()
-    gmf_item_embeddings = gmf_model.get_layer('item_embedding').get_weights()
-    model.get_layer('mf_embedding_user').set_weights(gmf_user_embeddings)
-    model.get_layer('mf_embedding_item').set_weights(gmf_item_embeddings)
-    
-    # MLP embeddings
-    
-    # MLP layers
-    for i in range(1, num_layers):
-        mlp_layer_weights = mlp_model.get_layer('layer%d' %i).get_weights()
-        model.get_layer('layer%d' %i).set_weights(mlp_layer_weights)
-        
-    # Prediction weights
-    gmf_prediction = gmf_model.get_layer('prediction').get_weights()
-    mlp_prediction = mlp_model.get_layer('prediction').get_weights()
-    new_weights = np.concatenate((gmf_prediction[0], mlp_prediction[0]), axis=0)
-    new_b = gmf_prediction[1] + mlp_prediction[1]
-    model.get_layer('prediction').set_weights([0.5*new_weights, 0.5*new_b])    
-    return model
+
+
 
 def get_train_instances(train, num_negatives):
     user_input, item_input, labels = [],[],[]
@@ -167,19 +159,43 @@ if __name__ == '__main__':
             
     topK = 10
     evaluation_threads = 1#mp.cpu_count()
-    print("NeuMF arguments: %s " %(args))
-    model_out_file = 'Pretrain/%s_NeuMF_%d_%s_%d.h5' %(args.dataset, mf_dim, args.layers, time())
+    #print("NeuMF arguments: %s " %(args))
+    #model_out_file = 'Pretrain/%s_NeuMF_%d_%s_%d.h5' %(args.dataset, mf_dim, args.layers, time())
+
 
     # Loading data
     t1 = time()
     dataset = Dataset(args.path + args.dataset)
     train, testRatings, testNegatives = dataset.trainMatrix, dataset.testRatings, dataset.testNegatives
+    train = train[:30]
     num_users, num_items = train.shape
-    print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
-          %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
+    #print("Load data done [%.1f s]. #user=%d, #item=%d, #train=%d, #test=%d" 
+    #      %(time()-t1, num_users, num_items, train.nnz, len(testRatings)))
     
     # Build model
-    model = get_model(num_users, num_items, mf_dim, layers, reg_layers, reg_mf)
+    user_input, item_input, labels = get_train_instances(train, num_negatives)
+    neat_emb = get_neat_vectors(num_users, num_items) 
+    neat_net = neat_emb.predict([np.array(user_input),np.array(item_input)], batch_size=1, verbose=0)
+
+    GMF_emb = get_neat_vectors(num_users, num_items) 
+    gmf_net = GMF_emb.predict([np.array(user_input),np.array(item_input)], batch_size=1, verbose=0)
+
+
+    print(neat_net)
+
+    print(gmf_net)
+    #with open("winner.pkl", 'rb') as input_f:
+    #    winner = pickle.load(input_f)
+    #net  = FeedForwardNet(winner, RS)
+
+    for i in range(5):
+        print(gmf_net[i], len(gmf_net[i]))
+        print(neat_net[i], len(neat_net[i]))
+
+
+
+    exit(0)
+    ##
     if learner.lower() == "adagrad": 
         model.compile(optimizer=Adagrad(learning_rate=learning_rate), loss='binary_crossentropy')
     elif learner.lower() == "rmsprop":
@@ -196,7 +212,8 @@ if __name__ == '__main__':
         with open("winner.pkl", 'rb') as input_f:
             winner = pickle.load(input_f)
         mlp_model  = FeedForwardNet(winner, RS)
-        model = load_pretrain_model(model, gmf_model, mlp_model, len(layers))
+        
+        model = load_pretrain_model(gmf_model, mlp_model, len(layers))
         print("Load pretrained GMF (%s) and MLP (%s) models done. " %(mf_pretrain, mlp_pretrain))
         
     # Init performance

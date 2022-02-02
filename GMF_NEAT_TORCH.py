@@ -19,7 +19,7 @@ import numpy as np
 import visualize
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Embedding, Input, concatenate, Flatten
+from tensorflow.keras.layers import Embedding, Input, concatenate, Flatten, Multiply
 from sklearn.metrics import accuracy_score
 from evaluate import evaluate_model
 from Dataset import Dataset
@@ -172,26 +172,27 @@ class RS:
 
 
 
-def get_latent_vectors(num_users, num_items, reg_layers=[0,0,0]):
-    # Input variables
-    user_input = Input(shape=(1,), dtype='int32', name = 'user_input')
-    item_input = Input(shape=(1,), dtype='int32', name = 'item_input')
+def get_latent_vectors(num_users, num_items):
+    user_input = Input(shape=(int(1),), dtype='int32', name = 'user_input')
+    item_input = Input(shape=(int(1),), dtype='int32', name = 'item_input')
+    
+    # Embedding layer
+    MF_Embedding_User = Embedding(input_dim = num_users, output_dim = 32, name = 'mf_embedding_user',
+                                  embeddings_initializer='uniform', embeddings_regularizer = l2(0), input_length=1)
+    MF_Embedding_Item = Embedding(input_dim = num_items, output_dim = 32, name = 'mf_embedding_item',
+                                  embeddings_initializer='uniform', embeddings_regularizer = l2(0), input_length=1)
 
-    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = 16, name = 'user_embedding',
-                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = 16, name = 'item_embedding',
-                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
-    
-    # Crucial to flatten an embedding vector!
-    user_latent = Flatten()(MLP_Embedding_User(user_input))
-    item_latent = Flatten()(MLP_Embedding_Item(item_input))
-    
-    # The 0-th layer is the concatenation of embedding layers
-    vector = concatenate([user_latent, item_latent], axis= -1)
 
-    model = Model(inputs=[user_input, item_input],
-                  outputs=vector)
     
+    # MF part
+    mf_user_latent = Flatten()(MF_Embedding_User(user_input))
+    mf_item_latent = Flatten()(MF_Embedding_Item(item_input))
+    mf_vector = Multiply()([mf_user_latent, mf_item_latent]) # element-wise multiply
+        
+
+    
+    model = Model(inputs=[mf_user_latent, mf_item_latent],
+                outputs=mf_vector)
     return model
 
 ##Implemeneting NEAT
@@ -226,11 +227,11 @@ def get_model(train, num_users, num_items, num_negatives ,layers = [20,10], reg_
     neat = Population(RS)
     solution, generation = neat.run()
 
-    with open("MLP_winner.pkl", 'wb') as output_f:
+
+    print(solution, generation)
+    with open("GMF_winner.pkl", 'wb') as output_f:
         pickle.dump(solution, output_f)
-
-
-    draw_net(solution, view=True, filename='ciao', show_disabled=True)
+    draw_net(solution, view=True, filename='GMF', show_disabled=True)
 
     #----- NEAT -------#
     
