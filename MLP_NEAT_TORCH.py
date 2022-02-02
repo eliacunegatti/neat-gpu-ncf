@@ -139,7 +139,7 @@ class RS:
         gt = []
         acc = 0
         import random 
-        #k = random.sample(range(0,(len(self.inputs)-1)) , )
+        k = random.sample(range(0,(len(self.inputs)-1)) ,1000 )
 
 
         for i in range(len(self.inputs)):
@@ -232,7 +232,6 @@ def get_model(train, num_users, num_items, num_negatives ,layers = [20,10], reg_
     solution
     draw_net(solution, view=True, filename='ciao', show_disabled=True)
 
-    exit(0)
     #----- NEAT -------#
     
 

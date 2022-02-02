@@ -6,9 +6,10 @@ He Xiangnan et al. Neural Collaborative Filtering. In WWW 2017.
 
 @author: Xiangnan He (xiangnanhe@gmail.com)
 '''
+import imp
 import numpy as np
 import os
-
+import pickle
 
 import tensorflow as tf
 
@@ -23,6 +24,10 @@ from time import time
 import GMF, MLP
 import argparse
 
+
+from phenotype import FeedForwardNet 
+
+from MLP_NEAT_TORCH import RS
 #################### Arguments ####################
 def parse_args():
     parser = argparse.ArgumentParser(description="Run NeuMF.")
@@ -69,14 +74,14 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     item_input = Input(shape=(int(1),), dtype='int32', name = 'item_input')
     
     # Embedding layer
-    MF_Embedding_User = Embedding(input_dim = num_users, output_dim = mf_dim, name = 'mf_embedding_user',
+    MF_Embedding_User = Embedding(input_dim = num_users, output_dim = 32, name = 'mf_embedding_user',
                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_mf), input_length=1)
-    MF_Embedding_Item = Embedding(input_dim = num_items, output_dim = mf_dim, name = 'mf_embedding_item',
+    MF_Embedding_Item = Embedding(input_dim = num_items, output_dim = 32, name = 'mf_embedding_item',
                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_mf), input_length=1)
 
-    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = int(layers[0]/2), name = "mlp_embedding_user",
+    MLP_Embedding_User = Embedding(input_dim = num_users, output_dim = 32, name = "mlp_embedding_user",
                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
-    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = int(layers[0]/2), name = 'mlp_embedding_item',
+    MLP_Embedding_Item = Embedding(input_dim = num_items, output_dim = 32, name = 'mlp_embedding_item',
                                   embeddings_initializer='uniform', embeddings_regularizer = l2(reg_layers[0]), input_length=1)
     
     # MF part
@@ -87,10 +92,10 @@ def get_model(num_users, num_items, mf_dim=10, layers=[10], reg_layers=[0], reg_
     # MLP part 
     mlp_user_latent = Flatten()(MLP_Embedding_User(user_input))
     mlp_item_latent = Flatten()(MLP_Embedding_Item(item_input))
+    
     mlp_vector = concatenate([mlp_user_latent, mlp_item_latent],axis=-1)
-    for idx in range(1, num_layer):
-        layer = Dense(layers[idx], kernel_regularizer= l2(reg_layers[idx]), activation='relu', name="layer%d" %idx)
-        mlp_vector = layer(mlp_vector)
+   
+
 
     # Concatenate MF and MLP parts
     #mf_vector = Lambda(lambda x: x * alpha)(mf_vector)
@@ -113,10 +118,6 @@ def load_pretrain_model(model, gmf_model, mlp_model, num_layers):
     model.get_layer('mf_embedding_item').set_weights(gmf_item_embeddings)
     
     # MLP embeddings
-    mlp_user_embeddings = mlp_model.get_layer('user_embedding').get_weights()
-    mlp_item_embeddings = mlp_model.get_layer('item_embedding').get_weights()
-    model.get_layer('mlp_embedding_user').set_weights(mlp_user_embeddings)
-    model.get_layer('mlp_embedding_item').set_weights(mlp_item_embeddings)
     
     # MLP layers
     for i in range(1, num_layers):
@@ -192,8 +193,9 @@ if __name__ == '__main__':
     if mf_pretrain != '' and mlp_pretrain != '':
         gmf_model = GMF.get_model(num_users,num_items,mf_dim)
         gmf_model.load_weights(mf_pretrain)
-        mlp_model = MLP.get_model(num_users,num_items, layers, reg_layers)
-        mlp_model.load_weights(mlp_pretrain)
+        with open("winner.pkl", 'rb') as input_f:
+            winner = pickle.load(input_f)
+        mlp_model  = FeedForwardNet(winner, RS)
         model = load_pretrain_model(model, gmf_model, mlp_model, len(layers))
         print("Load pretrained GMF (%s) and MLP (%s) models done. " %(mf_pretrain, mlp_pretrain))
         
