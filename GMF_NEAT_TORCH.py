@@ -142,7 +142,7 @@ class RS:
         k = random.sample(range(0,(len(self.inputs)-1)) ,1000 )
 
 
-        for i in range(len(self.inputs)):
+        for i in range(len(k)):
             input = self.inputs[i]
             target = self.targets[i] 
             input, target = input.to(self.DEVICE), target.to(self.DEVICE)
@@ -191,7 +191,7 @@ def get_latent_vectors(num_users, num_items):
         
 
     
-    model = Model(inputs=[mf_user_latent, mf_item_latent],
+    model = Model(inputs=[user_input, item_input],
                 outputs=mf_vector)
     return model
 
