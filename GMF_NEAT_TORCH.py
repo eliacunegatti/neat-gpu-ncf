@@ -139,7 +139,7 @@ class RS:
         gt = []
         acc = 0
         import random 
-        k = random.sample(range(0,(len(self.inputs)-1)) ,1000 )
+        k = random.sample(range(0,(len(self.inputs)-1)) ,1000)
 
 
         for i in range(len(k)):
@@ -154,7 +154,7 @@ class RS:
                 pred = 1
             else:
                 pred = 0
-            
+            print(pred)
             gt.append(target)
             values.append(pred)
             if pred == target:
